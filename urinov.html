@@ -1,0 +1,615 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Urinov - Selalu Mencari Jalan Muaranya</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css"
+          xintegrity="sha512-xodx2fXm13h/oU4/L42h3bH2W5G6jH41w4z6G1t6B5b5Q5k5J4/5B4/7L5g6r8/oQ=="
+          crossorigin=""/>
+    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"
+            xintegrity="sha512-q2p/k5D9r7B8m/g2Z0f0/6o2Q5k4v4q4h8/f6l5/m9k4r/w3k7s6/r4g6o7h8/oQ=="
+            crossorigin=""></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #111827; /* Dark Gray (CKB Logistics) */
+        }
+        .container {
+            max-width: 1200px;
+        }
+        .btn-primary {
+            background-color: #00BFA5; /* Vibrant Teal/Tosca (CKB Logistics) */
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 191, 165, 0.4);
+        }
+        .card {
+            background-color: #1f2937; /* Lighter Gray for card */
+        }
+        #map {
+            height: 500px;
+            width: 100%;
+            border-radius: 1rem;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        }
+        .tooltip-custom {
+            background-color: rgba(255, 255, 255, 0.95);
+            color: #111827;
+            border-radius: 0.5rem;
+            padding: 0.5rem 0.75rem;
+            font-size: 0.875rem;
+            font-weight: 500;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 0.5rem;
+        }
+        .legend-color {
+            width: 20px;
+            height: 20px;
+            border-radius: 4px;
+            margin-right: 0.5rem;
+        }
+        /* Custom markers for icons */
+        .truck-icon {
+            font-size: 24px;
+            color: #86EFAC;
+            text-shadow: 0 0 5px rgba(0, 0, 0, 0.5);
+        }
+        .ship-icon {
+            font-size: 24px;
+            color: #60A5FA;
+            text-shadow: 0 0 5px rgba(0, 0, 0, 0.5);
+        }
+        .plane-icon {
+            font-size: 24px;
+            color: #FCA5A5;
+            text-shadow: 0 0 5px rgba(0, 0, 0, 0.5);
+        }
+        /* Styles for Autocomplete */
+        .autocomplete-container {
+            position: relative;
+        }
+        .autocomplete-suggestions {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            z-index: 10;
+            background-color: #1f2937;
+            border: 1px solid #374151;
+            border-top: none;
+            border-radius: 0 0 0.5rem 0.5rem;
+            max-height: 200px;
+            overflow-y: auto;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .autocomplete-suggestions div {
+            padding: 0.75rem 1rem;
+            cursor: pointer;
+            border-bottom: 1px solid #374151;
+        }
+        .autocomplete-suggestions div:hover {
+            background-color: #374151;
+        }
+        .message-box {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 20;
+            background-color: #1f2937;
+            border-radius: 1rem;
+            padding: 2rem;
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.5);
+            max-width: 400px;
+        }
+        .message-box-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.6);
+            z-index: 15;
+        }
+    </style>
+</head>
+<body class="text-white">
+    <div class="container mx-auto p-4 md:p-8">
+        <!-- Header -->
+        <header class="flex justify-between items-center mb-8">
+            <div class="flex items-center space-x-4">
+                <img src="https://placehold.co/60x60/00BFA5/FFFFFF?text=U" alt="Logo Urinov" class="rounded-full">
+                <div>
+                    <h1 class="text-3xl font-bold text-white tracking-wide">Urinov</h1>
+                    <p class="text-sm font-light text-gray-300 italic">Selalu mencari jalan muaranya</p>
+                </div>
+            </div>
+            <div class="flex space-x-2">
+                <button id="lang-id" class="px-3 py-1 font-semibold rounded-lg bg-gray-700 text-white transition-all hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-500">ID</button>
+                <button id="lang-en" class="px-3 py-1 font-semibold rounded-lg bg-gray-700 text-white transition-all hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-500">EN</button>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <!-- Input and Info Panel -->
+            <div class="lg:col-span-1 p-6 rounded-2xl shadow-xl card">
+                <h2 id="plan-heading" class="text-2xl font-bold mb-6 text-center">Perencana Rute Multimoda</h2>
+                
+                <!-- Input Form -->
+                <form id="route-form" class="space-y-4 mb-6">
+                    <div class="autocomplete-container">
+                        <label for="origin-input" id="label-origin" class="block text-gray-300 text-sm font-medium mb-1">Titik Asal</label>
+                        <input type="text" id="origin-input" name="origin" class="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-green-500" placeholder="Ketik nama kota...">
+                        <div id="origin-suggestions" class="autocomplete-suggestions hidden"></div>
+                    </div>
+                    <div class="autocomplete-container">
+                        <label for="destination-input" id="label-destination" class="block text-gray-300 text-sm font-medium mb-1">Titik Tujuan</label>
+                        <input type="text" id="destination-input" name="destination" class="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-green-500" placeholder="Ketik nama kota...">
+                        <div id="destination-suggestions" class="autocomplete-suggestions hidden"></div>
+                    </div>
+                    <button type="submit" id="submit-btn" class="w-full px-4 py-3 btn-primary text-white font-bold rounded-lg focus:outline-none focus:ring-4 focus:ring-green-500 focus:ring-opacity-50">
+                        Buat Rute
+                    </button>
+                </form>
+
+                <!-- Loading and Results -->
+                <div id="loading" class="hidden flex justify-center items-center py-8">
+                    <div class="animate-spin rounded-full h-12 w-12 border-4 border-t-4 border-green-500 border-opacity-25 border-t-green-500"></div>
+                </div>
+
+                <div id="results" class="hidden mt-6 space-y-4">
+                    <div class="p-4 rounded-lg bg-gray-800 border-l-4 border-green-500">
+                        <h3 id="trip-plan-heading" class="text-lg font-semibold text-white mb-2">Rencana Perjalanan</h3>
+                        <p id="trip-plan-text" class="text-gray-300 text-sm leading-relaxed"></p>
+                    </div>
+                    <div class="p-4 rounded-lg bg-gray-800 border-l-4 border-green-500">
+                        <h3 id="cost-heading" class="text-lg font-semibold text-white mb-2">Estimasi Biaya</h3>
+                        <p id="cost-text" class="text-green-400 text-xl font-bold"></p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Map Panel -->
+            <div class="lg:col-span-2 rounded-2xl shadow-xl relative">
+                <div id="map"></div>
+                <!-- Legend for modes -->
+                <div id="legend" class="absolute bottom-4 left-4 p-4 rounded-xl bg-gray-800 bg-opacity-80 backdrop-filter backdrop-blur-sm hidden">
+                    <h4 class="font-bold text-sm mb-2">Legenda Moda</h4>
+                    <div class="legend-item">
+                        <div class="legend-color bg-green-400"></div>
+                        <span class="text-xs">Darat</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color bg-blue-400"></div>
+                        <span class="text-xs">Laut</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color bg-red-400"></div>
+                        <span class="text-xs">Udara</span>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+    
+    <!-- Custom Message Box -->
+    <div id="message-box-overlay" class="message-box-overlay hidden"></div>
+    <div id="message-box" class="message-box hidden text-center">
+        <h3 id="message-box-title" class="text-lg font-bold mb-4"></h3>
+        <p id="message-box-text" class="text-gray-300 mb-6"></p>
+        <button id="message-box-btn" class="px-6 py-2 btn-primary rounded-lg font-semibold">Tutup</button>
+    </div>
+
+    <script>
+        // Data lokasi yang diperluas
+        // Catatan: Ini adalah data sampel. Untuk aplikasi produksi, data ini harus berasal dari database atau API.
+        const locations = {
+            'Indonesia': {
+                'DKI Jakarta': {
+                    'Jakarta': [-6.2088, 106.8456]
+                },
+                'Jawa Barat': {
+                    'Bandung': [-6.9175, 107.6191],
+                    'Bekasi': [-6.2383, 106.9758],
+                    'Depok': [-6.4025, 106.8196]
+                },
+                'Jawa Timur': {
+                    'Surabaya': [-7.2575, 112.7521],
+                    'Malang': [-7.9666, 112.6333],
+                    'Kediri': [-7.8286, 112.0163]
+                },
+                'Sumatera Utara': {
+                    'Medan': [3.5975, 98.6780],
+                    'Pematangsiantar': [2.9554, 99.0601]
+                },
+                'Sumatera Selatan': {
+                    'Palembang': [-2.9761, 104.7754]
+                },
+                'Sulawesi Selatan': {
+                    'Makassar': [-5.1477, 119.4327],
+                    'Parepare': [-3.9961, 119.6385]
+                },
+                'Kalimantan Timur': {
+                    'Balikpapan': [-1.2654, 116.8285]
+                },
+                'Kalimantan Barat': {
+                    'Pontianak': [-0.0249, 109.3496]
+                },
+                'Nusa Tenggara Timur': {
+                    'Kupang': [-10.1794, 123.6124]
+                },
+                'Bali': {
+                    'Denpasar': [-8.6705, 115.2126]
+                },
+                'Papua': {
+                    'Jayapura': [-2.5333, 140.7167]
+                },
+                'Papua Barat': {
+                    'Manokwari': [-0.8667, 134.0833]
+                }
+            },
+            'USA': {
+                'New York': {
+                    'New York': [40.7128, -74.0060]
+                }
+            },
+            'Singapura': {
+                'Singapore': {
+                    'Singapore': [1.3521, 103.8198]
+                }
+            }
+        };
+
+        const allLocations = {};
+        for (const country in locations) {
+            for (const province in locations[country]) {
+                for (const city in locations[country][province]) {
+                    const fullName = `${city}, ${province}, ${country}`;
+                    allLocations[fullName] = locations[country][province][city];
+                }
+            }
+        }
+
+        // Data untuk terjemahan
+        const translations = {
+            id: {
+                title: "Urinov - Perencana Rute Multimoda",
+                planHeading: "Perencana Rute Multimoda",
+                labelOrigin: "Titik Asal",
+                labelDestination: "Titik Tujuan",
+                submitBtn: "Buat Rute",
+                loading: "Mencari rute terbaik...",
+                tripPlanHeading: "Rencana Perjalanan",
+                costHeading: "Estimasi Biaya",
+                noResult: "Pilih titik asal dan tujuan untuk memulai.",
+                legendTitle: "Legenda Moda",
+                modeLand: "Darat",
+                modeSea: "Laut",
+                modeAir: "Udara",
+                mapTooltip: (name, mode) => `<b>${name}</b><br>Moda: ${mode}`,
+                sampleCost: (cost) => `Rp ${cost.toLocaleString('id-ID')},-`,
+                tripPlanSegment: (mode, description, cost) => `
+                    <div class="p-3 rounded-lg bg-gray-700">
+                        <p class="font-semibold text-lg text-white mb-1">${description}</p>
+                        <p class="text-sm text-gray-400">Moda: <span class="text-green-300 font-medium">${mode}</span></p>
+                        <p class="text-sm text-gray-400">Biaya: <span class="text-green-300 font-medium">Rp ${cost.toLocaleString('id-ID')},-</span></p>
+                    </div>
+                `,
+                messageTitle: "Lokasi Tidak Ditemukan",
+                messageText: "Harap pilih lokasi yang valid dari daftar saran yang muncul saat Anda mengetik."
+            },
+            en: {
+                title: "Urinov - Multimodal Route Planner",
+                planHeading: "Multimodal Route Planner",
+                labelOrigin: "Origin",
+                labelDestination: "Destination",
+                submitBtn: "Create Route",
+                loading: "Finding the best route...",
+                tripPlanHeading: "Trip Plan",
+                costHeading: "Estimated Cost",
+                noResult: "Select origin and destination to start.",
+                legendTitle: "Mode Legend",
+                modeLand: "Land",
+                modeSea: "Sea",
+                modeAir: "Air",
+                mapTooltip: (name, mode) => `<b>${name}</b><br>Mode: ${mode}`,
+                sampleCost: (cost) => `IDR ${cost.toLocaleString('en-US')},-`,
+                tripPlanSegment: (mode, description, cost) => `
+                    <div class="p-3 rounded-lg bg-gray-700">
+                        <p class="font-semibold text-lg text-white mb-1">${description}</p>
+                        <p class="text-sm text-gray-400">Mode: <span class="text-green-300 font-medium">${mode}</span></p>
+                        <p class="text-sm text-gray-400">Cost: <span class="text-green-300 font-medium">IDR ${cost.toLocaleString('en-US')},-</span></p>
+                    </div>
+                `,
+                messageTitle: "Location Not Found",
+                messageText: "Please select a valid location from the suggestions that appear as you type."
+            }
+        };
+
+        const modeColors = {
+            'Darat': '#86EFAC', // Hijau terang
+            'Laut': '#60A5FA', // Biru terang
+            'Udara': '#FCA5A5' // Merah muda
+        };
+
+        const modeIcons = {
+            'Darat': L.divIcon({ className: 'truck-icon', html: '&#x1F69B;' }),
+            'Laut': L.divIcon({ className: 'ship-icon', html: '&#x1F6A2;' }),
+            'Udara': L.divIcon({ className: 'plane-icon', html: '&#x2708;' })
+        };
+        
+        // Elemen DOM
+        const langIdBtn = document.getElementById('lang-id');
+        const langEnBtn = document.getElementById('lang-en');
+        const form = document.getElementById('route-form');
+        const loadingDiv = document.getElementById('loading');
+        const resultsDiv = document.getElementById('results');
+        const tripPlanText = document.getElementById('trip-plan-text');
+        const costText = document.getElementById('cost-text');
+        const planHeading = document.getElementById('plan-heading');
+        const labelOrigin = document.getElementById('label-origin');
+        const labelDestination = document.getElementById('label-destination');
+        const submitBtn = document.getElementById('submit-btn');
+        const tripPlanHeading = document.getElementById('trip-plan-heading');
+        const costHeading = document.getElementById('cost-heading');
+        const originInput = document.getElementById('origin-input');
+        const destinationInput = document.getElementById('destination-input');
+        const originSuggestions = document.getElementById('origin-suggestions');
+        const destinationSuggestions = document.getElementById('destination-suggestions');
+        const legendDiv = document.getElementById('legend');
+        const messageBox = document.getElementById('message-box');
+        const messageBoxOverlay = document.getElementById('message-box-overlay');
+        const messageBoxTitle = document.getElementById('message-box-title');
+        const messageBoxText = document.getElementById('message-box-text');
+        const messageBoxBtn = document.getElementById('message-box-btn');
+
+        let currentLang = 'id';
+        let map;
+
+        // Fungsi untuk menampilkan kotak pesan
+        function showMessage(title, text) {
+            messageBoxTitle.textContent = title;
+            messageBoxText.textContent = text;
+            messageBox.classList.remove('hidden');
+            messageBoxOverlay.classList.remove('hidden');
+        }
+
+        // Fungsi untuk menyembunyikan kotak pesan
+        function hideMessage() {
+            messageBox.classList.add('hidden');
+            messageBoxOverlay.classList.add('hidden');
+        }
+
+        // Inisialisasi peta
+        function initMap() {
+            map = L.map('map').setView([-2.5, 118.5], 5); // Default view di Indonesia
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            }).addTo(map);
+        }
+
+        // Fungsi untuk autokomplet
+        function setupAutocomplete(inputElement, suggestionsElement) {
+            inputElement.addEventListener('input', () => {
+                const query = inputElement.value.toLowerCase();
+                suggestionsElement.innerHTML = '';
+                if (query.length < 2) {
+                    suggestionsElement.classList.add('hidden');
+                    return;
+                }
+                const matches = Object.keys(allLocations).filter(loc => loc.toLowerCase().includes(query));
+                if (matches.length > 0) {
+                    matches.forEach(match => {
+                        const div = document.createElement('div');
+                        div.textContent = match;
+                        div.addEventListener('click', () => {
+                            inputElement.value = match;
+                            suggestionsElement.classList.add('hidden');
+                        });
+                        suggestionsElement.appendChild(div);
+                    });
+                    suggestionsElement.classList.remove('hidden');
+                } else {
+                    suggestionsElement.classList.add('hidden');
+                }
+            });
+
+            inputElement.addEventListener('focus', () => {
+                if (inputElement.value.length >= 2) {
+                    suggestionsElement.classList.remove('hidden');
+                }
+            });
+
+            document.addEventListener('click', (e) => {
+                if (!e.target.closest('.autocomplete-container')) {
+                    suggestionsElement.classList.add('hidden');
+                }
+            });
+        }
+
+        // Fungsi untuk memperbarui teks UI
+        function updateUI() {
+            const t = translations[currentLang];
+            document.title = t.title;
+            planHeading.textContent = t.planHeading;
+            labelOrigin.textContent = t.labelOrigin;
+            labelDestination.textContent = t.labelDestination;
+            submitBtn.textContent = t.submitBtn;
+            tripPlanHeading.textContent = t.tripPlanHeading;
+            costHeading.textContent = t.costHeading;
+            if (resultsDiv.classList.contains('hidden')) {
+                tripPlanText.textContent = t.noResult;
+            }
+            
+            // Update legend
+            document.querySelector('#legend h4').textContent = t.legendTitle;
+            document.querySelector('.legend-item:nth-child(2) span').textContent = t.modeLand;
+            document.querySelector('.legend-item:nth-child(3) span').textContent = t.modeSea;
+            document.querySelector('.legend-item:nth-child(4) span').textContent = t.modeAir;
+            
+            // Update message box
+            messageBoxTitle.textContent = t.messageTitle;
+            messageBoxText.textContent = t.messageText;
+            messageBoxBtn.textContent = 'Tutup';
+        }
+        
+        // Fungsi untuk mengganti bahasa
+        function setLanguage(lang) {
+            currentLang = lang;
+            updateUI();
+        }
+        
+        // Haversine formula untuk menghitung jarak antara dua titik di bumi
+        function haversine(lat1, lon1, lat2, lon2) {
+            const R = 6371; // Radius Bumi dalam km
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLon = (lon2 - lon1) * Math.PI / 180;
+            const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                      Math.sin(dLon / 2) * Math.sin(dLon / 2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+            return R * c;
+        }
+        
+        // Fungsi untuk mensimulasikan pencarian rute AI
+        function generateRoute(origin, destination) {
+            return new Promise(resolve => {
+                setTimeout(() => {
+                    const originCoords = allLocations[origin];
+                    const destCoords = allLocations[destination];
+                    
+                    let routeSegments = [];
+                    let totalCost = 0;
+                    const distance = haversine(originCoords[0], originCoords[1], destCoords[0], destCoords[1]);
+                    
+                    // Logika simulasi "AI" berdasarkan rute spesifik dan jarak
+                    if (origin.includes('Surabaya') && destination.includes('Jayapura')) {
+                        // Rute laut-udara multimoda dari Surabaya ke Jayapura
+                        const makassarCoords = allLocations['Makassar, Sulawesi Selatan, Indonesia'];
+                        const distToMakassarSea = haversine(originCoords[0], originCoords[1], makassarCoords[0], makassarCoords[1]);
+                        const distFromMakassarAir = haversine(makassarCoords[0], makassarCoords[1], destCoords[0], destCoords[1]);
+                        
+                        routeSegments.push({ mode: 'Laut', from: origin, to: 'Pelabuhan Makassar', coords: [originCoords, makassarCoords], cost: distToMakassarSea * 500, description: 'Pengiriman barang via kapal laut dari Jawa Timur ke Sulawesi' });
+                        routeSegments.push({ mode: 'Udara', from: 'Makassar', to: destination, coords: [makassarCoords, destCoords], cost: distFromMakassarAir * 8000, description: 'Penerbangan lanjutan dari Sulawesi ke Papua' });
+
+                    } else if (origin.includes('Kediri') && destination.includes('Denpasar')) {
+                         // Rute darat dan laut untuk Kediri ke Bali
+                         const banyuwangiCoords = [-8.2144, 114.3761];
+                         const distKediriBanyuwangi = haversine(originCoords[0], originCoords[1], banyuwangiCoords[0], banyuwangiCoords[1]);
+                         const distBanyuwangiDenpasar = haversine(banyuwangiCoords[0], banyuwangiCoords[1], destCoords[0], destCoords[1]);
+                         routeSegments.push({ mode: 'Darat', from: origin, to: 'Pelabuhan Ketapang, Banyuwangi', coords: [originCoords, banyuwangiCoords], cost: distKediriBanyuwangi * 2500, description: 'Perjalanan darat dari Kediri ke Pelabuhan' });
+                         routeSegments.push({ mode: 'Laut', from: 'Pelabuhan Ketapang, Banyuwangi', to: 'Pelabuhan Gilimanuk, Denpasar', coords: [banyuwangiCoords, destCoords], cost: 500000, description: 'Penyeberangan laut via Selat Bali' });
+
+                    } else if (distance < 500) {
+                        // Rute darat untuk jarak pendek
+                        const cost = distance * 2000;
+                        routeSegments.push({ mode: 'Darat', from: origin, to: destination, coords: [originCoords, destCoords], cost: cost, description: 'Rute darat langsung' });
+                    } else if (distance >= 500 && distance < 3000) {
+                        // Rute darat dan udara untuk jarak menengah
+                        const airCostPerKm = 5000;
+                        const landCost = 500000;
+                        const totalAirCost = distance * airCostPerKm;
+                        routeSegments.push({ mode: 'Darat', from: origin, to: 'Bandara lokal', coords: [originCoords, originCoords], cost: landCost, description: 'Perjalanan ke bandara terdekat' });
+                        routeSegments.push({ mode: 'Udara', from: 'Bandara lokal', to: 'Bandara tujuan', coords: [originCoords, destCoords], cost: totalAirCost, description: `Penerbangan ${origin} ke ${destination}` });
+                    } else {
+                        // Rute multimoda untuk jarak jauh (antar negara/pulau)
+                        const airCostPerKm = 5000;
+                        const seaCostPerKm = 1000;
+                        const landCost = 500000;
+                        const totalAirCost = distance * airCostPerKm * 1.2;
+                        
+                        routeSegments.push({ mode: 'Darat', from: origin, to: 'Pelabuhan lokal', coords: [originCoords, originCoords], cost: landCost, description: 'Pengiriman darat ke pelabuhan' });
+                        routeSegments.push({ mode: 'Laut', from: 'Pelabuhan lokal', to: 'Pelabuhan Tujuan', coords: [originCoords, destCoords], cost: distance * seaCostPerKm, description: `Pengiriman laut ${origin} ke ${destination}` });
+                        routeSegments.push({ mode: 'Darat', from: 'Pelabuhan Tujuan', to: destination, coords: [destCoords, destCoords], cost: landCost, description: 'Pengiriman darat dari pelabuhan ke tujuan akhir' });
+                    }
+
+                    totalCost = routeSegments.reduce((sum, segment) => sum + segment.cost, 0);
+
+                    resolve({
+                        routeSegments,
+                        totalCost
+                    });
+                }, 2000); // Simulasi penundaan 2 detik
+            });
+        }
+        
+        // Event listener untuk form
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const origin = originInput.value;
+            const destination = destinationInput.value;
+            
+            if (!allLocations[origin] || !allLocations[destination]) {
+                const t = translations[currentLang];
+                showMessage(t.messageTitle, t.messageText);
+                return;
+            }
+
+            loadingDiv.classList.remove('hidden');
+            resultsDiv.classList.add('hidden');
+            legendDiv.classList.add('hidden');
+            
+            try {
+                const result = await generateRoute(origin, destination);
+                
+                // Menampilkan hasil
+                const t = translations[currentLang];
+                tripPlanText.innerHTML = result.routeSegments.map(s => t.tripPlanSegment(s.mode, s.description, s.cost)).join('');
+                costText.textContent = t.sampleCost(result.totalCost);
+
+                // Memperbarui peta
+                map.eachLayer((layer) => {
+                    if (layer instanceof L.Polyline || layer instanceof L.Marker) {
+                        map.removeLayer(layer);
+                    }
+                });
+
+                let allCoords = [];
+                result.routeSegments.forEach(segment => {
+                    const polyline = L.polyline(segment.coords, { color: modeColors[segment.mode], weight: 5 }).addTo(map);
+                    allCoords = allCoords.concat(segment.coords);
+
+                    const icon = modeIcons[segment.mode];
+                    L.marker(segment.coords[0], { icon: icon }).addTo(map)
+                        .bindPopup(t.mapTooltip(segment.from, segment.mode));
+                });
+
+                L.marker(result.routeSegments[result.routeSegments.length - 1].coords.slice(-1)[0]).addTo(map)
+                    .bindPopup(t.mapTooltip(destination, 'Tujuan')).openPopup();
+
+                const bounds = L.latLngBounds(allCoords);
+                map.fitBounds(bounds);
+                legendDiv.classList.remove('hidden');
+
+            } catch (error) {
+                console.error("Error generating route:", error);
+                const t = translations[currentLang];
+                showMessage("Terjadi Kesalahan", "Maaf, terjadi kesalahan saat mencari rute. Silakan coba lagi.");
+            } finally {
+                loadingDiv.classList.add('hidden');
+                resultsDiv.classList.remove('hidden');
+            }
+        });
+        
+        // Event listener untuk tombol bahasa dan kotak pesan
+        langIdBtn.addEventListener('click', () => setLanguage('id'));
+        langEnBtn.addEventListener('click', () => setLanguage('en'));
+        messageBoxBtn.addEventListener('click', hideMessage);
+
+        // Inisialisasi
+        initMap();
+        setupAutocomplete(originInput, originSuggestions);
+        setupAutocomplete(destinationInput, destinationSuggestions);
+        updateUI();
+    </script>
+</body>
+</html>
